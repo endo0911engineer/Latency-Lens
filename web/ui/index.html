@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LatencyLens Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    table { border-collapse: collapse; width: 100%; margin-top: 2em; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background-color: #f2f2f2; }
+    input, select, button { margin-right: 1em; padding: 5px; }
+  </style>
+</head>
+<body>
+  <h2>Send Manual Request</h2>
+  <form id="request-form">
+    <label>Path: <input type="text" id="path" placeholder="/hello" required /></label>
+    <label>Method:
+      <select id="method">
+        <option value="GET">GET</option>
+        <option value="POST">POST</option>
+      </select>
+    </label>
+    <button type="submit">Send</button>
+  </form>
+
+  <h2>Latency Report</h2>
+  <table id="report">
+    <thead>
+      <tr>
+        <th>Label</th>
+        <th>P50</th>
+        <th>P95</th>
+        <th>P99</th>
+        <th>Count</th>
+      </tr>
+    </thead>
+    <tbody id="table-body">
+    </tbody>
+  </table>
+
+  <script>
+    async function loadData() {
+      try {
+        const res = await fetch('http://localhost:3000/metrics');
+        const data = await res.json();
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        data.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+          <td>${row.label}</td>
+          <td>${row.p50}</td>
+          <td>${row.p95}</td>
+          <td>${row.p99}</td>
+          <td>${row.count}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        console.error("failed to fetch metrics:", e)
+      }
+    }
+
+    document.getElementById('request-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const path = document.getElementById('path').value;
+      const method = document.getElementById('method').value;
+
+      try {
+        const res = await fetch(`http://localhost:3000${path}`, { method });
+        const text = await res.text();
+        alert(`Response: ${text}`);
+      } catch (err) {
+        alert('Request failed: ' + err.message);
+      }
+    });
+    
+
+    
+    setInterval(loadData, 2000);
+    loadData();
+  </script>
+</body>
+</html>
