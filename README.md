@@ -1,87 +1,63 @@
 # log-analyzer
 
-高速で並列処理が可能なGo製ログ解析ライブラリ＆CLIツール
+**LatencyLens** は、自作の Go アプリケーションの HTTP/gRPC リクエストのレイテンシを計測・可視化する開発支援ツールです。
 
----
-
-## 概要
-
-`log-analyzer` は、大量のログファイルを高速かつ並列で解析し、ステータスコードやモデル別リクエスト数、時間帯ごとの統計などを集計するツール兼ライブラリです。  
-CLIとしても利用可能で、将来的にはリアルタイムログ監視機能も備える予定です。
+リアルタイムに P50 / P95 / P99 のパフォーマンス指標を取得し、Web ダッシュボードで直感的に確認できます。
 
 ---
 
 ## 特徴
 
-- Goの goroutine を活用した高速並列解析  
-- 柔軟なログフォーマット対応（JSON, Apache/Nginx 形式など）  
+- Goアプリに簡単に埋め込めるレイテンシ計測ミドルウェア  
+- P50 / P95 / P99 レイテンシの自動集計と可視化 
 - JSON / CSV形式で集計結果を出力可能  
-- ライブラリとしても利用でき、他サービスへの組み込みが容易  
-- （今後）fsnotifyによるリアルタイムログ監視に対応予定
+- Web ダッシュボード付き  
+- 自作の API / サービスの負荷テスト・性能監視に活用可能
 
 ---
 
-## インストール
+## 構成
+latency-lens/
+├── main.go # メトリクス提供サーバー
+├── middleware/ # HTTPリクエストのレイテンシ収集ミドルウェア
+├── collector/ # レイテンシ集計ロジック
+├── stats/ # P50/P95/P99 計算処理
+└── ui/
+└── index.html # Webダッシュボード（HTML/JS）
 
-```bash
-go get github.com/endo0911engineer/log-analyzer
-```
 ---
 
 ## 使い方
-### CLIツール
-ターミナルで以下のように実行してください：
-```bash
-log-analyzer -file access.log
+### 1. アプリケーションへの組込み
+```go
+wrapped := middleware.HTTPMiddleware(http.DefaultServeMux)
+http.ListenAndServe(":3000", wrapped)
 ```
 
-複数ファイルも解析可能です：
+### 2. レイテンシ収集サーバー起動
 ```bash
-log-analyzer -file access1.log -file access2.log
+go run main.go
 ```
-### ライブラリ使用例
-```bash
-package main
+→ :8080 で Web UI（/metrics）および HTML が提供されます
 
-import (
-    "log"
+### 3. Web UI 表示
+index.htmlをブラウザで開く
 
-    "github.com/endo0911engineer/log-analyzer/pkg/parser"
-    "github.com/endo0911engineer/log-analyzer/pkg/aggregator"
-    "github.com/endo0911engineer/log-analyzer/pkg/output"
-)
 
-func main() {
-    files := []string{"access1.log", "access2.log"}
+## ダッシュボード画面
+- /metrics に対する定期リクエストで、以下の指標がリアルタイム表示されます：
+  | Label    | P50   | P95   | P99   | Count |
+| -------- | ----- | ----- | ----- | ----- |
+| `/hello` | 50ms  | 150ms | 200ms | 12    |
+| `/slow`  | 350ms | 500ms | 600ms | 6     |
 
-    var allEntries [][]parser.LogEntry
-    for _, f := range files {
-        entries, err := parser.ParseLogFile(f)
-        if err != nil {
-            log.Fatal(err)
-        }
-        allEntries = append(allEntries, entries)
-    }
-
-    stats := aggregator.AggregateLogEntries(allEntries)
-
-    err := output.PrintJSON(stats)
-    if err != nil {
-        log.Fatal(err)
-    }
-}
-```
-
-### APIドキュメント
 
 ### 今後の予定
-- リアルタイムログ監視（fsnotify + goroutine + チャネル）
+- gRPC対応
+- 計測結果の保存（CSV, JSON）
+-  任意リクエストの UI 送信機能の強化
+- 外部サービス統合(例: Prometheus) 
 
-- WebSocket経由でのリアルタイムダッシュボード表示
-
-- より多様なログフォーマット対応
-
-- CLIオプションの強化と設定ファイル対応
-
-
+### ライセンス
+MIT
 
